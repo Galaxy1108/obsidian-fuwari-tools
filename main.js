@@ -28,7 +28,7 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian6 = require("obsidian");
-var import_child_process = require("child_process");
+var import_child_process2 = require("child_process");
 var import_os = require("os");
 
 // src/settings.ts
@@ -47,7 +47,10 @@ var DEFAULT_SETTINGS = {
   aiMaxChars: 2e3,
   aiGenerateTags: false,
   publishEnabled: true,
-  publishScriptPath: "~/Documents/Projects/Blog/publish.sh"
+  publishScriptPath: "~/Documents/Projects/Blog/publish.sh",
+  gitRepoPath: "",
+  gitRemote: "origin",
+  gitBranch: "main"
 };
 var FuwariSettingTab = class extends import_obsidian.PluginSettingTab {
   constructor(app, plugin) {
@@ -119,6 +122,23 @@ var FuwariSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.publishScriptPath = v;
       await this.plugin.saveSettings();
     }));
+    containerEl.createEl("h3", { text: "Git \u540C\u6B65" });
+    containerEl.createEl("p", {
+      text: "\u628A vault \u5185\u5BB9\u63A8\u9001\u5230 / \u4ECE GitHub \u62C9\u53D6\uFF08\u535A\u5BA2\u4ED3\u5E93 Galaxy1108/galaxy1108-blog\uFF09\u3002\u7559\u7A7A\u4ED3\u5E93\u8DEF\u5F84\u65F6\uFF0C\u9ED8\u8BA4\u4F7F\u7528\u5F53\u524D vault \u6240\u5728\u76EE\u5F55\uFF0C\u5E76\u81EA\u52A8\u5411\u4E0A\u5B9A\u4F4D\u5230 git \u4ED3\u5E93\u3002",
+      cls: "setting-item-description"
+    });
+    new import_obsidian.Setting(containerEl).setName("\u4ED3\u5E93\u8DEF\u5F84\uFF08\u53EF\u9009\uFF09").setDesc("\u7559\u7A7A = \u81EA\u52A8\u63A2\u6D4B\uFF08vault \u6240\u5728 git \u4ED3\u5E93\uFF09").addText((t) => t.setPlaceholder("~/Documents/Projects/Blog").setValue(this.plugin.settings.gitRepoPath).onChange(async (v) => {
+      this.plugin.settings.gitRepoPath = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u8FDC\u7AEF").addText((t) => t.setPlaceholder("origin").setValue(this.plugin.settings.gitRemote).onChange(async (v) => {
+      this.plugin.settings.gitRemote = v || "origin";
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u5206\u652F").addText((t) => t.setPlaceholder("main").setValue(this.plugin.settings.gitBranch).onChange(async (v) => {
+      this.plugin.settings.gitBranch = v || "main";
+      await this.plugin.saveSettings();
+    }));
   }
 };
 
@@ -151,6 +171,29 @@ function slugify(title) {
 function sanitizeFileName(name) {
   const base = name.replace(/[^\w.\-]/g, "").replace(/^\.+/, "");
   return base || `image-${Date.now()}.png`;
+}
+
+// src/git.ts
+var import_child_process = require("child_process");
+function git(cwd, args) {
+  return new Promise((resolve, reject) => {
+    (0, import_child_process.execFile)("git", args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        const code = error.code;
+        const msg = (stderr || stdout || error.message || "").trim();
+        const hint = code === "ENOENT" ? "\u672A\u627E\u5230 git\u3002\u8BF7\u5B89\u88C5 git \u5E76\u786E\u4FDD\u5B83\u80FD\u88AB Obsidian \u8C03\u7528\uFF08\u52A0\u5165 PATH \u540E\u91CD\u542F Obsidian\uFF09\u3002" : msg;
+        reject(new Error(hint));
+        return;
+      }
+      resolve({ stdout: stdout || "", stderr: stderr || "" });
+    });
+  });
+}
+function autoCommitMessage(now = /* @__PURE__ */ new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const d = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const t = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return `chore(blog): \u535A\u5BA2\u540C\u6B65 @ ${d} ${t}`;
 }
 
 // src/meta-modal.ts
@@ -959,9 +1002,21 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
       name: "\u4E00\u952E\u53D1\u5E03\u535A\u5BA2",
       callback: () => this.publish()
     });
+    this.addCommand({
+      id: "sync-github",
+      name: "\u540C\u6B65\u5230 GitHub\uFF08\u63D0\u4EA4\u5E76\u63A8\u9001\uFF09",
+      callback: () => this.pushToGithub()
+    });
+    this.addCommand({
+      id: "pull-github",
+      name: "\u4ECE GitHub \u62C9\u53D6",
+      callback: () => this.pullFromGithub()
+    });
     this.addRibbonIcon("file-plus", "\u65B0\u5EFA\u535A\u5BA2\u6587\u7AE0", () => this.newPost());
     this.addRibbonIcon("pencil", "\u66F4\u6539\u6587\u4EF6\u5143\u6570\u636E", () => this.editMeta());
     this.addRibbonIcon("send", "\u4E00\u952E\u53D1\u5E03\u535A\u5BA2", () => this.publish());
+    this.addRibbonIcon("cloud-upload", "\u540C\u6B65\u5230 GitHub", () => this.pushToGithub());
+    this.addRibbonIcon("cloud-download", "\u4ECE GitHub \u62C9\u53D6", () => this.pullFromGithub());
     this.addSettingTab(new FuwariSettingTab(this.app, this));
   }
   onunload() {
@@ -1032,7 +1087,7 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
     }
     const script = this.expandHome(this.settings.publishScriptPath);
     new import_obsidian6.Notice("\u5F00\u59CB\u53D1\u5E03\u2026");
-    (0, import_child_process.exec)(`/bin/bash "${script}"`, (error, stdout, stderr) => {
+    (0, import_child_process2.exec)(`/bin/bash "${script}"`, (error, stdout, stderr) => {
       const out = (stdout || "") + (stderr || "");
       if (error) {
         new import_obsidian6.Notice("\u53D1\u5E03\u5931\u8D25: " + error.message);
@@ -1046,6 +1101,60 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
         new import_obsidian6.Notice("\u53D1\u5E03\u7ED3\u675F\uFF0C\u8BF7\u67E5\u770B\u7EBF\u4E0A");
       }
     });
+  }
+  /** Working directory for git commands: the configured repo path, else the vault's filesystem root. */
+  gitCwd() {
+    var _a;
+    const configured = (this.settings.gitRepoPath || "").trim();
+    if (configured)
+      return this.expandHome(configured);
+    const adapter = this.app.vault.adapter;
+    const base = (_a = adapter == null ? void 0 : adapter.getBasePath) == null ? void 0 : _a.call(adapter);
+    return base ? base : null;
+  }
+  async pushToGithub() {
+    const cwd = this.gitCwd();
+    if (!cwd) {
+      new import_obsidian6.Notice("\u627E\u4E0D\u5230\u4ED3\u5E93\u76EE\u5F55\uFF08vault \u8DEF\u5F84\uFF09");
+      return;
+    }
+    try {
+      const status = await git(cwd, ["status", "--porcelain"]);
+      const lines = status.stdout.trim();
+      if (!lines) {
+        new import_obsidian6.Notice("\u6CA1\u6709\u9700\u8981\u63A8\u9001\u7684\u6539\u52A8");
+        return;
+      }
+      const count = lines.split("\n").length;
+      new import_obsidian6.Notice("\u6B63\u5728\u63D0\u4EA4\u5E76\u63A8\u9001\u2026");
+      await git(cwd, ["add", "-A"]);
+      await git(cwd, ["commit", "-m", autoCommitMessage()]);
+      await git(cwd, ["push", this.settings.gitRemote, this.settings.gitBranch]);
+      new import_obsidian6.Notice(`\u5DF2\u63A8\u9001\u5230 GitHub \u2705\uFF08${count} \u4E2A\u6539\u52A8\uFF09`);
+    } catch (e) {
+      new import_obsidian6.Notice("\u63A8\u9001\u5931\u8D25: " + e.message);
+    }
+  }
+  async pullFromGithub() {
+    const cwd = this.gitCwd();
+    if (!cwd) {
+      new import_obsidian6.Notice("\u627E\u4E0D\u5230\u4ED3\u5E93\u76EE\u5F55\uFF08vault \u8DEF\u5F84\uFF09");
+      return;
+    }
+    try {
+      const status = await git(cwd, ["status", "--porcelain"]);
+      if (status.stdout.trim()) {
+        new import_obsidian6.Notice("\u68C0\u6D4B\u5230\u672C\u5730\u6539\u52A8\uFF0C\u5148\u81EA\u52A8\u63D0\u4EA4\u2026");
+        await git(cwd, ["add", "-A"]);
+        await git(cwd, ["commit", "-m", autoCommitMessage()]);
+      }
+      new import_obsidian6.Notice("\u6B63\u5728\u4ECE GitHub \u62C9\u53D6\u2026");
+      await git(cwd, ["pull", "--rebase", this.settings.gitRemote, this.settings.gitBranch]);
+      new import_obsidian6.Notice("\u5DF2\u4ECE GitHub \u62C9\u53D6 \u2705");
+      new import_obsidian6.Notice("\u82E5\u6587\u4EF6\u5217\u8868\u672A\u5237\u65B0\uFF1A\u8BBE\u7F6E \u2192 \u6587\u4EF6\u4E0E\u94FE\u63A5 \u2192 \u5F00\u542F\u300C\u68C0\u6D4B\u6240\u6709\u6587\u4EF6\u53D8\u66F4\u300D\uFF0C\u6216\u91CD\u542F Obsidian\u3002", 8e3);
+    } catch (e) {
+      new import_obsidian6.Notice("\u62C9\u53D6\u5931\u8D25: " + e.message);
+    }
   }
   onFileModified(file) {
     if (!isPostFile(file, this.settings.postsFolder))

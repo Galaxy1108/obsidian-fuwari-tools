@@ -15,6 +15,10 @@ export interface FuwariSettings {
 	aiGenerateTags: boolean;
 	publishEnabled: boolean;
 	publishScriptPath: string;
+	// Git sync (push / pull content to the blog GitHub repo)
+	gitRepoPath: string;
+	gitRemote: string;
+	gitBranch: string;
 }
 
 export const DEFAULT_SETTINGS: FuwariSettings = {
@@ -32,6 +36,9 @@ export const DEFAULT_SETTINGS: FuwariSettings = {
 	aiGenerateTags: false,
 	publishEnabled: true,
 	publishScriptPath: "~/Documents/Projects/Blog/publish.sh",
+	gitRepoPath: "",
+	gitRemote: "origin",
+	gitBranch: "main",
 };
 
 /** Minimal plugin surface the UI needs, to avoid importing the Plugin class directly. */
@@ -141,6 +148,30 @@ export class FuwariSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("发布脚本路径").addText((t) =>
 			t.setPlaceholder("~/Documents/Projects/Blog/publish.sh").setValue(this.plugin.settings.publishScriptPath).onChange(async (v) => {
 				this.plugin.settings.publishScriptPath = v;
+				await this.plugin.saveSettings();
+			}));
+
+		containerEl.createEl("h3", { text: "Git 同步" });
+		containerEl.createEl("p", {
+			text: "把 vault 内容推送到 / 从 GitHub 拉取（博客仓库 Galaxy1108/galaxy1108-blog）。留空仓库路径时，默认使用当前 vault 所在目录，并自动向上定位到 git 仓库。",
+			cls: "setting-item-description",
+		});
+
+		new Setting(containerEl).setName("仓库路径（可选）").setDesc("留空 = 自动探测（vault 所在 git 仓库）").addText((t) =>
+			t.setPlaceholder("~/Documents/Projects/Blog").setValue(this.plugin.settings.gitRepoPath).onChange(async (v) => {
+				this.plugin.settings.gitRepoPath = v;
+				await this.plugin.saveSettings();
+			}));
+
+		new Setting(containerEl).setName("远端").addText((t) =>
+			t.setPlaceholder("origin").setValue(this.plugin.settings.gitRemote).onChange(async (v) => {
+				this.plugin.settings.gitRemote = v || "origin";
+				await this.plugin.saveSettings();
+			}));
+
+		new Setting(containerEl).setName("分支").addText((t) =>
+			t.setPlaceholder("main").setValue(this.plugin.settings.gitBranch).onChange(async (v) => {
+				this.plugin.settings.gitBranch = v || "main";
 				await this.plugin.saveSettings();
 			}));
 	}

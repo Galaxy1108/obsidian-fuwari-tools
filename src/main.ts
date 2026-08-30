@@ -8,6 +8,7 @@ import {
 	type FuwariLike,
 } from "./settings";
 import { getFrontmatter, isPostFile, isRealPost, isUnder, slugify } from "./fm";
+import { git, autoCommitMessage } from "./git";
 import { MetaModal } from "./meta-modal";
 import { registerBlogRender } from "./render";
 import { livePreviewExtension } from "./livepreview";
@@ -98,9 +99,23 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 			callback: () => this.publish(),
 		});
 
+		this.addCommand({
+			id: "sync-github",
+			name: "同步到 GitHub（提交并推送）",
+			callback: () => this.pushToGithub(),
+		});
+
+		this.addCommand({
+			id: "pull-github",
+			name: "从 GitHub 拉取",
+			callback: () => this.pullFromGithub(),
+		});
+
 		this.addRibbonIcon("file-plus", "新建博客文章", () => this.newPost());
 		this.addRibbonIcon("pencil", "更改文件元数据", () => this.editMeta());
 		this.addRibbonIcon("send", "一键发布博客", () => this.publish());
+		this.addRibbonIcon("cloud-upload", "同步到 GitHub", () => this.pushToGithub());
+		this.addRibbonIcon("cloud-download", "从 GitHub 拉取", () => this.pullFromGithub());
 
 		this.addSettingTab(new FuwariSettingTab(this.app, this));
 	}
@@ -193,6 +208,61 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 				new Notice("发布结束，请查看线上");
 			}
 		});
+	}
+
+	/** Working directory for git commands: the configured repo path, else the vault's filesystem root. */
+	private gitCwd(): string | null {
+		const configured = (this.settings.gitRepoPath || "").trim();
+		if (configured) return this.expandHome(configured);
+		const adapter = this.app.vault.adapter as { getBasePath?: () => string };
+		const base = adapter?.getBasePath?.();
+		return base ? base : null;
+	}
+
+	private async pushToGithub(): Promise<void> {
+		const cwd = this.gitCwd();
+		if (!cwd) {
+			new Notice("找不到仓库目录（vault 路径）");
+			return;
+		}
+		try {
+			const status = await git(cwd, ["status", "--porcelain"]);
+			const lines = status.stdout.trim();
+			if (!lines) {
+				new Notice("没有需要推送的改动");
+				return;
+			}
+			const count = lines.split("\n").length;
+			new Notice("正在提交并推送…");
+			await git(cwd, ["add", "-A"]);
+			await git(cwd, ["commit", "-m", autoCommitMessage()]);
+			await git(cwd, ["push", this.settings.gitRemote, this.settings.gitBranch]);
+			new Notice(`已推送到 GitHub ✅（${count} 个改动）`);
+		} catch (e) {
+			new Notice("推送失败: " + (e as Error).message);
+		}
+	}
+
+	private async pullFromGithub(): Promise<void> {
+		const cwd = this.gitCwd();
+		if (!cwd) {
+			new Notice("找不到仓库目录（vault 路径）");
+			return;
+		}
+		try {
+			const status = await git(cwd, ["status", "--porcelain"]);
+			if (status.stdout.trim()) {
+				new Notice("检测到本地改动，先自动提交…");
+				await git(cwd, ["add", "-A"]);
+				await git(cwd, ["commit", "-m", autoCommitMessage()]);
+			}
+			new Notice("正在从 GitHub 拉取…");
+			await git(cwd, ["pull", "--rebase", this.settings.gitRemote, this.settings.gitBranch]);
+			new Notice("已从 GitHub 拉取 ✅");
+			new Notice("若文件列表未刷新：设置 → 文件与链接 → 开启「检测所有文件变更」，或重启 Obsidian。", 8000);
+		} catch (e) {
+			new Notice("拉取失败: " + (e as Error).message);
+		}
 	}
 
 	private onFileModified(file: TFile): void {
