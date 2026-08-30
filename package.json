@@ -1,6 +1,6 @@
 {
 	"name": "fuwari-tools",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "Fuwari blog tools for Obsidian",
 	"main": "main.js",
 	"scripts": {
@@ -23,5 +23,8 @@
 		"esbuild": "^0.20.0",
 		"obsidian": "^1.4.0",
 		"typescript": "^5.4.0"
+	},
+	"dependencies": {
+		"pinyin-pro": "^3.29.3"
 	}
 }

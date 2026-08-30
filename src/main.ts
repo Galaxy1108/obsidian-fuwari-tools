@@ -7,7 +7,7 @@ import {
 	type FuwariSettings,
 	type FuwariLike,
 } from "./settings";
-import { getFrontmatter, isPostFile, isRealPost, isUnder, slugify } from "./fm";
+import { getFrontmatter, isPostFile, isRealPost, isUnder, pinyinSlug, slugify } from "./fm";
 import { git, autoCommitMessage } from "./git";
 import { MetaModal } from "./meta-modal";
 import { registerBlogRender } from "./render";
@@ -155,6 +155,7 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 			const content = [
 				"---",
 				`title: ${q(title)}`,
+				`slug: ${q(pinyinSlug(title))}`,
 				`published: "${today}"`,
 				`updated: "${today}"`,
 				'description: ""',

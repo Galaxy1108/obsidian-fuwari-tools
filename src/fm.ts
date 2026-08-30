@@ -1,4 +1,5 @@
 import { App, TFile } from "obsidian";
+import { pinyin } from "pinyin-pro";
 
 /** True when `p` is inside the folder `folder` (vault-relative), using "/" separators. */
 export function isUnder(p: string, folder: string): boolean {
@@ -36,6 +37,27 @@ export function slugify(title: string): string {
 		.replace(/^-+|-+$/g, "")
 		.replace(/^\.+|[.\s]+$/g, "");
 	// Keep filenames sane-length (avoid exceeding path limits).
+	if (s.length > 80) s = s.slice(0, 80).replace(/-+$/g, "");
+	if (!s) {
+		const t = new Date();
+		const pad = (n: number) => String(n).padStart(2, "0");
+		s = `post-${t.getFullYear()}${pad(t.getMonth() + 1)}${pad(t.getDate())}-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
+	}
+	return s;
+}
+
+/**
+ * Build a clean ASCII URL slug from a title by transliterating Chinese to pinyin.
+ * Used for the frontmatter `slug:` field so the blog gets a clean URL while the
+ * Obsidian filename stays Chinese. Falls back to a timestamp slug if the result is empty.
+ */
+export function pinyinSlug(title: string): string {
+	const py = pinyin(title, { toneType: "none", nonZh: "consecutive", separator: "-" });
+	let s = py
+		.toLowerCase()
+		.replace(/[^a-z0-9-]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-+|-+$/g, "");
 	if (s.length > 80) s = s.slice(0, 80).replace(/-+$/g, "");
 	if (!s) {
 		const t = new Date();
