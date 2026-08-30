@@ -60,9 +60,19 @@
 .fuwari-github-card {
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
-	padding: 10px 12px;
-	margin: 8px 0;
+	padding: 6px 8px;
+	margin: 2px 0;
 	background: var(--background-secondary);
+}
+
+/* Live preview: card is placed inline (block decorations are banned), tighten spacing */
+.cm-content .fuwari-github-card {
+	margin: 2px 0;
+}
+
+/* Drop the CodeMirror inline widget buffers around our card to remove the blank line */
+.cm-line:has(.fuwari-github-card) img.cm-widgetBuffer {
+	display: none;
 }
 
 .fuwari-github-head {
