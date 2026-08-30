@@ -509,9 +509,13 @@ var MetaModal = class extends import_obsidian4.Modal {
 var import_obsidian5 = require("obsidian");
 function registerBlogRender(plugin) {
   plugin.registerMarkdownPostProcessor(async (el, ctx) => {
-    processSpoilers(el);
-    processGithubCards(el);
-    await processAdmonitions(plugin, el, ctx.sourcePath);
+    try {
+      processSpoilers(el);
+      processGithubCards(el);
+      await processAdmonitions(plugin, el, ctx.sourcePath);
+    } catch (e) {
+      console.error("[fuwari-tools] post-processor error:", e);
+    }
   });
 }
 function processSpoilers(el) {
@@ -524,6 +528,8 @@ function processSpoilers(el) {
 function processGithubCards(el) {
   const paragraphs = Array.from(el.querySelectorAll("p"));
   for (const p of paragraphs) {
+    if (p.closest("pre, code") || p.querySelector("code"))
+      continue;
     const text = p.textContent || "";
     const re = /::\s*github\s*\{\s*repo\s*=\s*"([^"]+)"\s*\}/g;
     const found = Array.from(text.matchAll(re));
@@ -697,6 +703,185 @@ function splitMerged(text) {
   return { type, title: (m[2] || "").trim() || capitalise(type), body: (m[3] || "").trim() };
 }
 
+// src/livepreview.ts
+var import_view = require("@codemirror/view");
+var import_state = require("@codemirror/state");
+function capitalise2(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+var GithubCardWidget = class extends import_view.WidgetType {
+  constructor(repo) {
+    super();
+    this.repo = repo;
+  }
+  eq(other) {
+    return other.repo === this.repo;
+  }
+  estimateHeight() {
+    return 120;
+  }
+  toDOM() {
+    const card = buildGithubCard(this.repo);
+    void hydrateGithubCard(card, this.repo);
+    return card;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+var SpoilerWidget = class extends import_view.WidgetType {
+  constructor(text) {
+    super();
+    this.text = text;
+  }
+  eq(other) {
+    return other.text === this.text;
+  }
+  toDOM() {
+    const el = document.createElement("span");
+    el.addClass("fuwari-lp-spoiler");
+    el.setText(this.text);
+    return el;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+function cursorInside(view, from, to) {
+  const sel = view.state.selection.main;
+  return sel.from >= from && sel.to <= to;
+}
+function findCalloutBlocks(view) {
+  const doc = view.state.doc;
+  const blocks = [];
+  const lineCount = doc.lines;
+  let inFence = false;
+  for (let ln = 1; ln <= lineCount; ln++) {
+    const line = doc.line(ln);
+    const text = line.text.trim();
+    if (/^```/.test(text)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence)
+      continue;
+    const m = /^:::\s*([a-zA-Z]+)(?:\[([^\]]*)\])?(?:\s+(.*))?$/.exec(text);
+    if (!m || text !== m[0].trim())
+      continue;
+    const type = m[1].toLowerCase();
+    const title = (m[2] || "").trim() || (m[3] || "").trim() || capitalise2(type);
+    const contentLines = [];
+    let closeLine = -1;
+    let innerFence = false;
+    for (let ln2 = ln + 1; ln2 <= lineCount; ln2++) {
+      const l2 = doc.line(ln2);
+      const t2 = l2.text.trim();
+      if (/^```/.test(t2)) {
+        innerFence = !innerFence;
+        contentLines.push(l2.text);
+        continue;
+      }
+      if (innerFence) {
+        contentLines.push(l2.text);
+        continue;
+      }
+      if (/^:::\s*$/.test(t2)) {
+        closeLine = ln2;
+        break;
+      }
+      contentLines.push(l2.text);
+    }
+    if (closeLine === -1)
+      continue;
+    blocks.push({
+      from: line.from,
+      to: doc.line(closeLine).to,
+      type,
+      title,
+      content: contentLines.join("\n")
+    });
+    ln = closeLine;
+  }
+  return blocks;
+}
+function computeCodeRanges(doc) {
+  const ranges = [];
+  const lineCount = doc.lines;
+  let inFence = false;
+  let fenceStart = 0;
+  for (let ln = 1; ln <= lineCount; ln++) {
+    const line = doc.line(ln);
+    if (/^```/.test(line.text.trim())) {
+      if (!inFence) {
+        inFence = true;
+        fenceStart = line.from;
+      } else {
+        ranges.push({ from: fenceStart, to: line.to });
+        inFence = false;
+      }
+    }
+  }
+  const text = doc.toString();
+  const re = /`+([^`]+)`+/g;
+  let m;
+  while (m = re.exec(text)) {
+    const contentStart = m.index + m[0].indexOf(m[1]);
+    ranges.push({ from: contentStart, to: contentStart + m[1].length });
+  }
+  return ranges;
+}
+function buildDecorations(view) {
+  try {
+    const items = [];
+    const visible = view.visibleRanges;
+    const codeRanges = computeCodeRanges(view.state.doc);
+    const inCode = (pos) => codeRanges.some((r) => pos >= r.from && pos <= r.to);
+    const blocks = findCalloutBlocks(view);
+    const insideBlock = (pos) => blocks.some((b) => pos >= b.from && pos <= b.to);
+    for (const { from, to } of visible) {
+      const text = view.state.doc.sliceString(from, to);
+      const githubRe = /::github\s*\{\s*repo\s*=\s*"([^"]+)"\s*\}/g;
+      let m;
+      while (m = githubRe.exec(text)) {
+        const start = from + m.index;
+        const end = start + m[0].length;
+        if (cursorInside(view, start, end) || insideBlock(start) || inCode(start))
+          continue;
+        items.push({ from: start, to: end, deco: import_view.Decoration.replace({ widget: new GithubCardWidget(m[1]) }) });
+      }
+      const spoilerRe = /:spoiler\[([^\]]*)\]/g;
+      while (m = spoilerRe.exec(text)) {
+        const start = from + m.index;
+        const end = start + m[0].length;
+        if (cursorInside(view, start, end) || insideBlock(start) || inCode(start))
+          continue;
+        items.push({ from: start, to: end, deco: import_view.Decoration.replace({ widget: new SpoilerWidget(m[1]) }) });
+      }
+    }
+    items.sort((a, b) => a.from - b.from || a.to - b.to);
+    const builder = new import_state.RangeSetBuilder();
+    for (const it of items)
+      builder.add(it.from, it.to, it.deco);
+    return builder.finish();
+  } catch (e) {
+    console.error("[fuwari-tools] live preview decoration error:", e);
+    return import_view.Decoration.none;
+  }
+}
+var LivePreviewDecoration = class {
+  constructor(view) {
+    this.decorations = buildDecorations(view);
+  }
+  update(update) {
+    if (update.docChanged || update.selectionSet || update.viewportChanged) {
+      this.decorations = buildDecorations(update.view);
+    }
+  }
+};
+var livePreviewExtension = import_view.ViewPlugin.fromClass(LivePreviewDecoration, {
+  decorations: (v) => v.decorations
+});
+
 // src/main.ts
 var TitleModal = class extends import_obsidian6.Modal {
   constructor(app, onSubmit) {
@@ -737,6 +922,7 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
   async onload() {
     await this.loadSettings();
     registerBlogRender(this);
+    this.registerEditorExtension([livePreviewExtension]);
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
         if (file instanceof import_obsidian6.TFile)

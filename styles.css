@@ -160,7 +160,7 @@
 	--callout-color: rgb(212, 92, 92);
 }
 
-/* Spoiler: blurred until hovered */
+/* Reading view spoiler */
 .fuwari-spoiler {
 	filter: blur(4px);
 	cursor: pointer;
@@ -168,5 +168,85 @@
 }
 
 .fuwari-spoiler:hover {
+	filter: none;
+}
+
+.fuwari-lp-callout {
+	--callout-color: 82, 139, 212;
+	border-left: 3px solid rgb(var(--callout-color));
+	background: rgba(var(--callout-color), 0.07);
+	border-radius: 6px;
+	padding: 8px 12px;
+	margin: 8px 0;
+}
+
+.fuwari-lp-callout[data-callout="tip"] {
+	--callout-color: 0, 184, 132;
+}
+
+.fuwari-lp-callout[data-callout="important"] {
+	--callout-color: 150, 110, 220;
+}
+
+.fuwari-lp-callout[data-callout="warning"] {
+	--callout-color: 227, 154, 58;
+}
+
+.fuwari-lp-callout[data-callout="caution"] {
+	--callout-color: 212, 92, 92;
+}
+
+.fuwari-lp-callout-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.fuwari-lp-callout-icon {
+	display: inline-flex;
+	color: rgb(var(--callout-color));
+}
+
+.fuwari-lp-callout-content {
+	font-size: 0.95em;
+}
+
+/* Live preview widgets */
+.fuwari-lp-github {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 999px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 0.85em;
+	cursor: pointer;
+	vertical-align: middle;
+}
+
+.fuwari-lp-github-mark {
+	color: var(--text-accent);
+	display: inline-flex;
+}
+
+.fuwari-lp-github-name {
+	font-weight: 600;
+}
+
+.fuwari-lp-github-meta {
+	color: var(--text-muted);
+}
+
+.fuwari-lp-spoiler {
+	filter: blur(4px);
+	cursor: pointer;
+	transition: filter 0.15s ease;
+}
+
+.fuwari-lp-spoiler:hover {
 	filter: none;
 }

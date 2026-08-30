@@ -16,10 +16,12 @@
 	"author": "Galaxy1108",
 	"license": "MIT",
 	"devDependencies": {
+		"@codemirror/state": "^6.7.1",
+		"@codemirror/view": "^6.43.9",
 		"@types/node": "^20.0.0",
+		"builtin-modules": "^3.3.0",
 		"esbuild": "^0.20.0",
 		"obsidian": "^1.4.0",
-		"typescript": "^5.4.0",
-		"builtin-modules": "^3.3.0"
+		"typescript": "^5.4.0"
 	}
 }

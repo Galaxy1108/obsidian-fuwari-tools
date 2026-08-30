@@ -10,6 +10,7 @@ import {
 import { getFrontmatter, isPostFile, isRealPost, isUnder, slugify } from "./fm";
 import { MetaModal } from "./meta-modal";
 import { registerBlogRender } from "./render";
+import { livePreviewExtension } from "./livepreview";
 
 /** A small modal to ask for the new post title. */
 class TitleModal extends Modal {
@@ -57,6 +58,7 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 		await this.loadSettings();
 
 		registerBlogRender(this);
+		this.registerEditorExtension([livePreviewExtension]);
 
 		this.registerEvent(
 			this.app.vault.on("modify", (file) => {
