@@ -1,0 +1,25 @@
+{
+	"name": "fuwari-tools",
+	"version": "1.0.0",
+	"description": "Fuwari blog tools for Obsidian",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"typecheck": "tsc -noEmit -skipLibCheck"
+	},
+	"keywords": [
+		"obsidian",
+		"blog",
+		"fuwari"
+	],
+	"author": "Galaxy1108",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"esbuild": "^0.20.0",
+		"obsidian": "^1.4.0",
+		"typescript": "^5.4.0",
+		"builtin-modules": "^3.3.0"
+	}
+}

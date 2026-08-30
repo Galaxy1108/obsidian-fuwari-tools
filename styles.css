@@ -1,0 +1,172 @@
+.fuwari-cover-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.fuwari-cover-thumb {
+	width: 48px;
+	height: 48px;
+	object-fit: cover;
+	border-radius: 4px;
+	flex-shrink: 0;
+}
+
+.fuwari-cover-preview {
+	margin: 8px 0 12px;
+	min-height: 10px;
+}
+
+.fuwari-cover-preview-img {
+	max-width: 180px;
+	max-height: 140px;
+	object-fit: cover;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.fuwari-modal-footer {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 16px;
+}
+
+.fuwari-title-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 12px;
+}
+
+.fuwari-status {
+	margin: 6px 0 10px;
+	padding: 6px 10px;
+	border-radius: 6px;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+.fuwari-status.ok {
+	color: var(--text-success);
+}
+
+.fuwari-status.err {
+	color: var(--text-error);
+}
+
+/* GitHub repository card */
+.fuwari-github-card {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 10px 12px;
+	margin: 8px 0;
+	background: var(--background-secondary);
+}
+
+.fuwari-github-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.fuwari-github-head-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.fuwari-github-avatar {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.fuwari-github-owner {
+	font-weight: 600;
+}
+
+.fuwari-github-repo {
+	font-weight: 400;
+}
+
+.fuwari-github-mark {
+	color: var(--text-accent);
+	display: inline-flex;
+}
+
+.fuwari-github-name {
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fuwari-github-desc {
+	color: var(--text-muted);
+	font-size: 0.9em;
+	margin-bottom: 4px;
+}
+
+.fuwari-github-meta {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	color: var(--text-muted);
+	font-size: 0.8em;
+	margin-bottom: 6px;
+}
+
+.fuwari-github-stat {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.fuwari-github-stat svg {
+	vertical-align: -2px;
+}
+
+.fuwari-github-link {
+	font-size: 0.85em;
+}
+
+/* Admonitions render as Obsidian-native callouts; styling comes from Obsidian core.
+   Callout colors are injected here (Obsidian v1.13+ requires a valid CSS color value,
+   so we use rgb(...), NOT the old bare r,g,b tuple). */
+
+.callout[data-callout="note"] {
+	--callout-color: rgb(82, 139, 212);
+}
+
+.callout[data-callout="tip"] {
+	--callout-color: rgb(0, 184, 132);
+}
+
+.callout[data-callout="important"] {
+	--callout-color: rgb(150, 110, 220);
+}
+
+.callout[data-callout="warning"] {
+	--callout-color: rgb(227, 154, 58);
+}
+
+.callout[data-callout="caution"] {
+	--callout-color: rgb(212, 92, 92);
+}
+
+/* Spoiler: blurred until hovered */
+.fuwari-spoiler {
+	filter: blur(4px);
+	cursor: pointer;
+	transition: filter 0.15s ease;
+}
+
+.fuwari-spoiler:hover {
+	filter: none;
+}

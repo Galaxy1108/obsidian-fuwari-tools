@@ -1,0 +1,9 @@
+{
+	"id": "fuwari-tools",
+	"name": "Fuwari Tools",
+	"version": "1.0.0",
+	"minAppVersion": "1.4.0",
+	"description": "自动维护 Fuwari 博客文章的元数据（updated/封面/摘要），提供新建文章、元数据编辑器、AI 生成摘要与一键发布。",
+	"author": "Galaxy1108",
+	"isDesktopOnly": true
+}
