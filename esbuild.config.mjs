@@ -44,7 +44,8 @@ const context = await esbuild.context({
 });
 
 // After a successful build, copy the plugin artifacts into the Obsidian plugins folder.
-const pluginDir = path.resolve(__dirname, "..", ".obsidian", "plugins", "fuwari-tools");
+// The vault root is `../vault`, so install into `../vault/.obsidian/plugins/fuwari-tools`.
+const pluginDir = path.resolve(__dirname, "..", "vault", ".obsidian", "plugins", "fuwari-tools");
 
 function copyArtifacts() {
 	fs.mkdirSync(pluginDir, { recursive: true });

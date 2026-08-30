@@ -24,14 +24,19 @@ export function isRealPost(app: App, file: TFile): boolean {
 	return fm.title != null || fm.published != null;
 }
 
-/** Slugify a title into an ascii-safe slug; falls back to a timestamp-based slug. */
+/** Derive a filesystem-friendly filename from a title, keeping CJK/Unicode; falls back to a timestamp-based slug only if the result is empty. */
 export function slugify(title: string): string {
-	let s = title
-		.normalize("NFKD")
-		.replace(/[^\x00-\x7F]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
+	// Use the title directly as the filename (keep CJK / Unicode).
+	// Only strip what Windows/filesystem/git reject, and normalize whitespace.
+	let s = title.trim();
+	s = s.replace(/\\/g, "/");
+	s = s
+		.replace(/[\/:*?"<>|]/g, " ")
+		.replace(/\s+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/^\.+|[.\s]+$/g, "");
+	// Keep filenames sane-length (avoid exceeding path limits).
+	if (s.length > 80) s = s.slice(0, 80).replace(/-+$/g, "");
 	if (!s) {
 		const t = new Date();
 		const pad = (n: number) => String(n).padStart(2, "0");

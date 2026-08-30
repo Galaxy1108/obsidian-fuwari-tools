@@ -136,7 +136,11 @@ function getFrontmatter(app, file) {
   return (_a = cache == null ? void 0 : cache.frontmatter) != null ? _a : null;
 }
 function slugify(title) {
-  let s = title.normalize("NFKD").replace(/[^\x00-\x7F]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  let s = title.trim();
+  s = s.replace(/\\/g, "/");
+  s = s.replace(/[\/:*?"<>|]/g, " ").replace(/\s+/g, "-").replace(/^-+|-+$/g, "").replace(/^\.+|[.\s]+$/g, "");
+  if (s.length > 80)
+    s = s.slice(0, 80).replace(/-+$/g, "");
   if (!s) {
     const t = /* @__PURE__ */ new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -230,15 +234,15 @@ async function generateSummary(content, settings) {
   var _a, _b, _c, _d;
   const body = cleanBody(content, settings.aiMaxChars);
   const wantTags = settings.aiGenerateTags;
-  let systemPrompt = "\u4F60\u662F\u4E00\u4E2A\u535A\u5BA2\u52A9\u624B\u3002\u8BF7\u9605\u8BFB\u7ED9\u5B9A\u7684\u6587\u7AE0\uFF0C\u8F93\u51FA\u4E00\u53E5\u8BDD\u4E2D\u6587\u6458\u8981\uFF08\u4E0D\u8D85\u8FC7 150 \u5B57\uFF09\uFF0C\u76F4\u63A5\u8F93\u51FA\u6B63\u6587\uFF0C\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u300C\u6458\u8981\uFF1A\u300D\u524D\u7F00\u3002";
+  let systemPrompt = "\u4F60\u662F\u4E00\u4E2A\u535A\u5BA2\u52A9\u624B\u3002\u8BF7\u4E3A\u6587\u7AE0\u5199\u4E00\u53E5\u7B80\u77ED\u7684\u6982\u8FF0\uFF08\u4E2D\u6587\uFF0C\u4E0D\u8D85\u8FC7 50 \u5B57\uFF0C\u4F46 20 \u5B57\u4EE5\u5185\u6700\u4F73\u3001\u8D8A\u77ED\u8D8A\u597D\uFF09\uFF0C\u6734\u7D20\u5BA2\u89C2\u3001\u50CF\u4E00\u53E5\u8BDD\u526F\u6807\u9898\uFF0C\u4E0D\u8981\u8425\u9500\u8BCD\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u300C\u6982\u8FF0\uFF1A\u300D\u524D\u7F00\uFF0C\u76F4\u63A5\u8F93\u51FA\u6982\u8FF0\u672C\u8EAB\u3002\u793A\u4F8B\uFF1A\u8FD9\u662F\u4E00\u7BC7 Markdown \u535A\u5BA2\u793A\u4F8B\u3002";
   if (wantTags) {
-    systemPrompt += ' \u53E6\u5916\u518D\u7528 JSON \u8F93\u51FA\u63A8\u8350\u6807\u7B7E\u4E0E\u5206\u7C7B\uFF1A\u5F62\u5982 {"tags": ["\u6807\u7B7E1","\u6807\u7B7E2"], "category": "\u5206\u7C7B"}\uFF0C\u653E\u5728\u6458\u8981\u4E4B\u540E\uFF0C\u7528 --- \u5206\u9694\u3002';
+    systemPrompt += ' \u53E6\u5916\u518D\u7528 JSON \u8F93\u51FA\u63A8\u8350\u6807\u7B7E\u4E0E\u5206\u7C7B\uFF1A\u5F62\u5982 {"tags": ["\u6807\u7B7E1","\u6807\u7B7E2"], "category": "\u5206\u7C7B"}\uFF0C\u653E\u5728\u6982\u8FF0\u4E4B\u540E\uFF0C\u7528 --- \u5206\u9694\u3002';
   }
   const userPrompt = wantTags ? `\u6587\u7AE0\u5185\u5BB9\uFF1A
 
 ${body}
 
-\u8BF7\u8F93\u51FA\uFF1A\u7B2C\u4E00\u884C\u4E3A\u4E2D\u6587\u6458\u8981\uFF1B\u7136\u540E\u4E00\u884C ---\uFF1B\u7136\u540E\u4E00\u884C JSON \u5F62\u5982 {"tags":["a","b"],"category":"c"}\u3002` : `\u6587\u7AE0\u5185\u5BB9\uFF1A
+\u8BF7\u8F93\u51FA\uFF1A\u7B2C\u4E00\u884C\u4E3A\u4E2D\u6587\u6982\u8FF0\uFF08\u226450\u5B57\uFF0C\u5C3D\u91CF\u226420\u5B57\uFF09\uFF1B\u7136\u540E\u4E00\u884C ---\uFF1B\u7136\u540E\u4E00\u884C JSON \u5F62\u5982 {"tags":["a","b"],"category":"c"}\u3002` : `\u6587\u7AE0\u5185\u5BB9\uFF1A
 
 ${body}`;
   const payload = {
@@ -883,7 +887,7 @@ var livePreviewExtension = import_view.ViewPlugin.fromClass(LivePreviewDecoratio
 });
 
 // src/main.ts
-var TitleModal = class extends import_obsidian6.Modal {
+var NewPostModal = class extends import_obsidian6.Modal {
   constructor(app, onSubmit) {
     super(app);
     this.onSubmit = onSubmit;
@@ -891,23 +895,34 @@ var TitleModal = class extends import_obsidian6.Modal {
   onOpen() {
     this.contentEl.createEl("h3", { text: "\u65B0\u5EFA\u535A\u5BA2\u6587\u7AE0" });
     new import_obsidian6.Setting(this.contentEl).setName("\u6807\u9898").addText((t) => {
-      this.input = t.inputEl;
+      this.titleInput = t.inputEl;
       t.setPlaceholder("\u6587\u7AE0\u6807\u9898");
       setTimeout(() => t.inputEl.focus(), 50);
     });
+    new import_obsidian6.Setting(this.contentEl).setName("\u6807\u7B7E").setDesc("\u9017\u53F7\u5206\u9694").addText((t) => {
+      this.tagsInput = t.inputEl;
+      t.setPlaceholder("\u6280\u672F, \u7B14\u8BB0");
+    });
+    new import_obsidian6.Setting(this.contentEl).setName("\u5206\u7C7B").addText((t) => {
+      this.catInput = t.inputEl;
+      t.setPlaceholder("\u5B66\u4E60\u8BB0\u5F55");
+    });
     const row = this.contentEl.createDiv({ cls: "fuwari-title-actions" });
     const create = row.createEl("button", { text: "\u521B\u5EFA", cls: "mod-cta" });
-    create.addEventListener("click", () => {
-      const title = this.input.value.trim() || "\u672A\u547D\u540D\u6587\u7AE0";
-      this.close();
-      this.onSubmit(title);
-    });
-    this.input.addEventListener("keydown", (e) => {
+    create.addEventListener("click", () => this.submit());
+    this.contentEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        this.close();
-        this.onSubmit(this.input.value.trim() || "\u672A\u547D\u540D\u6587\u7AE0");
+        e.preventDefault();
+        this.submit();
       }
     });
+  }
+  submit() {
+    const title = this.titleInput.value.trim() || "\u672A\u547D\u540D\u6587\u7AE0";
+    const tags = this.tagsInput.value.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+    const category = this.catInput.value.trim();
+    this.close();
+    this.onSubmit(title, tags, category);
   }
   onClose() {
     this.contentEl.empty();
@@ -936,7 +951,7 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
     });
     this.addCommand({
       id: "edit-blog-meta",
-      name: "\u7F16\u8F91\u5F53\u524D\u6587\u7AE0\u7684\u5143\u6570\u636E",
+      name: "\u66F4\u6539\u6587\u4EF6\u5143\u6570\u636E",
       callback: () => this.editMeta()
     });
     this.addCommand({
@@ -945,7 +960,7 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
       callback: () => this.publish()
     });
     this.addRibbonIcon("file-plus", "\u65B0\u5EFA\u535A\u5BA2\u6587\u7AE0", () => this.newPost());
-    this.addRibbonIcon("pencil", "\u7F16\u8F91\u5F53\u524D\u6587\u7AE0\u5143\u6570\u636E", () => this.editMeta());
+    this.addRibbonIcon("pencil", "\u66F4\u6539\u6587\u4EF6\u5143\u6570\u636E", () => this.editMeta());
     this.addRibbonIcon("send", "\u4E00\u952E\u53D1\u5E03\u535A\u5BA2", () => this.publish());
     this.addSettingTab(new FuwariSettingTab(this.app, this));
   }
@@ -967,7 +982,7 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
     if (!this.app.vault.getAbstractFileByPath(postsFolder)) {
       await this.app.vault.createFolder(postsFolder);
     }
-    new TitleModal(this.app, async (title) => {
+    new NewPostModal(this.app, async (title, tags, category) => {
       let slug = slugify(title);
       let path = `${postsFolder}/${slug}.md`;
       let i = 1;
@@ -975,22 +990,24 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
         path = `${postsFolder}/${slug}-${i++}.md`;
       }
       const today = (0, import_obsidian6.moment)().format("YYYY-MM-DD");
+      const q = (s) => `"${String(s).replace(/"/g, '\\"')}"`;
+      const tagsYaml = tags.length ? tags.map(q).join(", ") : "";
       const content = [
         "---",
-        `title: "${String(title).replace(/"/g, '\\"')}"`,
+        `title: ${q(title)}`,
         `published: "${today}"`,
+        `updated: "${today}"`,
         'description: ""',
-        "tags: []",
-        'category: ""',
+        tags.length ? `tags: [${tagsYaml}]` : "tags: []",
+        `category: ${q(category)}`,
         'image: ""',
         "draft: true",
         "---",
         ""
       ].join("\n");
       try {
-        const file = await this.app.vault.create(path, content);
-        new import_obsidian6.Notice("\u5DF2\u521B\u5EFA\u6587\u7AE0\uFF0C\u8BF7\u8865\u5145\u5143\u6570\u636E");
-        new MetaModal(this.app, file, this).open();
+        await this.app.vault.create(path, content);
+        new import_obsidian6.Notice("\u5DF2\u521B\u5EFA\u6587\u7AE0\uFF08\u8349\u7A3F\uFF09\u3002\u5982\u9700\u8865\u6458\u8981/\u5C01\u9762\uFF0C\u7528\u300C\u7F16\u8F91\u5F53\u524D\u6587\u7AE0\u5143\u6570\u636E\u300D\u6216\u4FA7\u8FB9 AI \u6309\u94AE");
       } catch (e) {
         new import_obsidian6.Notice("\u521B\u5EFA\u5931\u8D25: " + e.message);
       }

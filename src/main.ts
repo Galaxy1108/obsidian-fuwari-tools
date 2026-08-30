@@ -12,12 +12,14 @@ import { MetaModal } from "./meta-modal";
 import { registerBlogRender } from "./render";
 import { livePreviewExtension } from "./livepreview";
 
-/** A small modal to ask for the new post title. */
-class TitleModal extends Modal {
-	private onSubmit: (title: string) => void;
-	private input!: HTMLInputElement;
+/** A small modal to create a new post: only title + tags + category; the rest is auto-filled. */
+class NewPostModal extends Modal {
+	private onSubmit: (title: string, tags: string[], category: string) => void;
+	private titleInput!: HTMLInputElement;
+	private tagsInput!: HTMLInputElement;
+	private catInput!: HTMLInputElement;
 
-	constructor(app: App, onSubmit: (title: string) => void) {
+	constructor(app: App, onSubmit: (title: string, tags: string[], category: string) => void) {
 		super(app);
 		this.onSubmit = onSubmit;
 	}
@@ -25,23 +27,35 @@ class TitleModal extends Modal {
 	onOpen(): void {
 		this.contentEl.createEl("h3", { text: "新建博客文章" });
 		new Setting(this.contentEl).setName("标题").addText((t) => {
-			this.input = t.inputEl;
+			this.titleInput = t.inputEl;
 			t.setPlaceholder("文章标题");
 			setTimeout(() => t.inputEl.focus(), 50);
 		});
+		new Setting(this.contentEl).setName("标签").setDesc("逗号分隔").addText((t) => {
+			this.tagsInput = t.inputEl;
+			t.setPlaceholder("技术, 笔记");
+		});
+		new Setting(this.contentEl).setName("分类").addText((t) => {
+			this.catInput = t.inputEl;
+			t.setPlaceholder("学习记录");
+		});
 		const row = this.contentEl.createDiv({ cls: "fuwari-title-actions" });
 		const create = row.createEl("button", { text: "创建", cls: "mod-cta" });
-		create.addEventListener("click", () => {
-			const title = this.input.value.trim() || "未命名文章";
-			this.close();
-			this.onSubmit(title);
-		});
-		this.input.addEventListener("keydown", (e) => {
+		create.addEventListener("click", () => this.submit());
+		this.contentEl.addEventListener("keydown", (e) => {
 			if (e.key === "Enter") {
-				this.close();
-				this.onSubmit(this.input.value.trim() || "未命名文章");
+				e.preventDefault();
+				this.submit();
 			}
 		});
+	}
+
+	private submit(): void {
+		const title = this.titleInput.value.trim() || "未命名文章";
+		const tags = this.tagsInput.value.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+		const category = this.catInput.value.trim();
+		this.close();
+		this.onSubmit(title, tags, category);
 	}
 
 	onClose(): void {
@@ -74,7 +88,7 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 
 		this.addCommand({
 			id: "edit-blog-meta",
-			name: "编辑当前文章的元数据",
+			name: "更改文件元数据",
 			callback: () => this.editMeta(),
 		});
 
@@ -85,7 +99,7 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 		});
 
 		this.addRibbonIcon("file-plus", "新建博客文章", () => this.newPost());
-		this.addRibbonIcon("pencil", "编辑当前文章元数据", () => this.editMeta());
+		this.addRibbonIcon("pencil", "更改文件元数据", () => this.editMeta());
 		this.addRibbonIcon("send", "一键发布博客", () => this.publish());
 
 		this.addSettingTab(new FuwariSettingTab(this.app, this));
@@ -113,7 +127,7 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 		if (!this.app.vault.getAbstractFileByPath(postsFolder)) {
 			await this.app.vault.createFolder(postsFolder);
 		}
-		new TitleModal(this.app, async (title) => {
+		new NewPostModal(this.app, async (title, tags, category) => {
 			let slug = slugify(title);
 			let path = `${postsFolder}/${slug}.md`;
 			let i = 1;
@@ -121,22 +135,24 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 				path = `${postsFolder}/${slug}-${i++}.md`;
 			}
 			const today = moment().format("YYYY-MM-DD");
+			const q = (s: string) => `"${String(s).replace(/"/g, '\\"')}"`;
+			const tagsYaml = tags.length ? tags.map(q).join(", ") : "";
 			const content = [
 				"---",
-				`title: "${String(title).replace(/"/g, '\\"')}"`,
+				`title: ${q(title)}`,
 				`published: "${today}"`,
+				`updated: "${today}"`,
 				'description: ""',
-				"tags: []",
-				'category: ""',
+				tags.length ? `tags: [${tagsYaml}]` : "tags: []",
+				`category: ${q(category)}`,
 				'image: ""',
 				"draft: true",
 				"---",
 				"",
 			].join("\n");
 			try {
-				const file = await this.app.vault.create(path, content);
-				new Notice("已创建文章，请补充元数据");
-				new MetaModal(this.app, file, this).open();
+				await this.app.vault.create(path, content);
+				new Notice("已创建文章（草稿）。如需补摘要/封面，用「编辑当前文章元数据」或侧边 AI 按钮");
 			} catch (e) {
 				new Notice("创建失败: " + (e as Error).message);
 			}

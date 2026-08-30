@@ -29,13 +29,13 @@ export async function generateSummary(
 	const wantTags = settings.aiGenerateTags;
 
 	let systemPrompt =
-		"你是一个博客助手。请阅读给定的文章，输出一句话中文摘要（不超过 150 字），直接输出正文，不要引号、不要「摘要：」前缀。";
+		"你是一个博客助手。请为文章写一句简短的概述（中文，不超过 50 字，但 20 字以内最佳、越短越好），朴素客观、像一句话副标题，不要营销词、不要引号、不要「概述：」前缀，直接输出概述本身。示例：这是一篇 Markdown 博客示例。";
 	if (wantTags) {
-		systemPrompt += " 另外再用 JSON 输出推荐标签与分类：形如 {\"tags\": [\"标签1\",\"标签2\"], \"category\": \"分类\"}，放在摘要之后，用 --- 分隔。";
+		systemPrompt += " 另外再用 JSON 输出推荐标签与分类：形如 {\"tags\": [\"标签1\",\"标签2\"], \"category\": \"分类\"}，放在概述之后，用 --- 分隔。";
 	}
 
 	const userPrompt = wantTags
-		? `文章内容：\n\n${body}\n\n请输出：第一行为中文摘要；然后一行 ---；然后一行 JSON 形如 {"tags":["a","b"],"category":"c"}。`
+		? `文章内容：\n\n${body}\n\n请输出：第一行为中文概述（≤50字，尽量≤20字）；然后一行 ---；然后一行 JSON 形如 {"tags":["a","b"],"category":"c"}。`
 		: `文章内容：\n\n${body}`;
 
 	const payload = {
