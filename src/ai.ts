@@ -94,3 +94,51 @@ export async function generateSummary(
 
 	return { summary, tags, category };
 }
+
+/**
+ * Ask the AI for a short English URL slug for a title.
+ * Returns a sanitized slug (a-z / 0-9 / dashes) or "" if the model returned nothing usable.
+ */
+export async function generateSlug(title: string, settings: FuwariSettings): Promise<string> {
+	const systemPrompt =
+		"你是一个博客助手。给定一个（通常是中文的）文章标题，请给出一个简短、恰当的英文 URL slug。只输出 slug 本身，不要引号、不要解释、不要任何多余文字。";
+	const userPrompt = `标题：${title}\n\n要求：2~5 个英文单词，全部小写，单词之间用连字符 - 连接，只包含 a-z、0-9 和连字符。直接输出 slug。`;
+
+	const payload = {
+		model: settings.aiModel,
+		messages: [
+			{ role: "system", content: systemPrompt },
+			{ role: "user", content: userPrompt },
+		],
+		temperature: 0.2,
+		max_tokens: 400,
+	};
+
+	const base = settings.aiBaseUrl.replace(/\/+$/, "");
+	const resp = await requestUrl({
+		url: `${base}/chat/completions`,
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${settings.aiApiKey}`,
+		},
+		body: JSON.stringify(payload),
+	});
+
+	if (resp.status < 200 || resp.status >= 300) {
+		throw new Error(`AI API ${resp.status}: ${(resp.text || "").slice(0, 200)}`);
+	}
+
+	const data = resp.json as {
+		choices?: Array<{ message?: { content?: string } }>;
+	};
+	const text = data?.choices?.[0]?.message?.content?.trim() || "";
+
+	return text
+		.toLowerCase()
+		.replace(/[^a-z0-9-]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 60)
+		.replace(/-+$/g, "");
+}

@@ -46,6 +46,7 @@ var DEFAULT_SETTINGS = {
   aiApiKey: "",
   aiMaxChars: 2e3,
   aiGenerateTags: false,
+  aiGenerateSlug: true,
   publishEnabled: true,
   publishScriptPath: "~/Documents/Projects/Blog/publish.sh",
   gitRepoPath: "",
@@ -111,6 +112,10 @@ var FuwariSettingTab = class extends import_obsidian.PluginSettingTab {
     }));
     new import_obsidian.Setting(containerEl).setName("AI \u987A\u5E26\u751F\u6210 tags/category").addToggle((t) => t.setValue(this.plugin.settings.aiGenerateTags).onChange(async (v) => {
       this.plugin.settings.aiGenerateTags = v;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName("AI \u751F\u6210\u82F1\u6587 slug").setDesc("\u65B0\u5EFA\u6587\u7AE0\u65F6\u7528 AI \u7FFB\u6210\u7B80\u77ED\u82F1\u6587 URL\uFF1B\u5931\u8D25\u6216\u672A\u542F\u7528\u5219\u7528\u62FC\u97F3").addToggle((t) => t.setValue(this.plugin.settings.aiGenerateSlug).onChange(async (v) => {
+      this.plugin.settings.aiGenerateSlug = v;
       await this.plugin.saveSettings();
     }));
     containerEl.createEl("h3", { text: "\u53D1\u5E03" });
@@ -24587,76 +24592,8 @@ function autoCommitMessage(now = /* @__PURE__ */ new Date()) {
   return `chore(blog): \u535A\u5BA2\u540C\u6B65 @ ${d} ${t}`;
 }
 
-// src/meta-modal.ts
-var import_obsidian4 = require("obsidian");
-
-// src/cover.ts
-var import_obsidian2 = require("obsidian");
-var IMAGE_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"]);
-function listImages(app, imagesFolder) {
-  return app.vault.getFiles().filter((f) => {
-    if (!IMAGE_EXTS.has(f.extension) || !isUnder(f.path, imagesFolder))
-      return false;
-    return true;
-  });
-}
-async function ensureFolder(app, folder) {
-  if (!folder)
-    return;
-  if (!app.vault.getAbstractFileByPath(folder)) {
-    await app.vault.createFolder(folder);
-  }
-}
-function resourcePath(app, file) {
-  try {
-    return app.vault.getResourcePath(file);
-  } catch (e) {
-    return "";
-  }
-}
-async function importImage(app, imagesFolder, rawName, data) {
-  await ensureFolder(app, imagesFolder);
-  const safe = sanitizeFileName(rawName);
-  let name = safe;
-  let i = 1;
-  while (app.vault.getAbstractFileByPath(`${imagesFolder}/${name}`)) {
-    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
-    const stem = name.slice(0, name.lastIndexOf("."));
-    name = `${stem}-${i++}${ext}`;
-  }
-  await app.vault.createBinary(`${imagesFolder}/${name}`, data);
-  return `/images/${name}`;
-}
-var CoverSuggestModal = class extends import_obsidian2.FuzzySuggestModal {
-  constructor(app, imagesFolder, onPick) {
-    super(app);
-    this.imagesFolder = imagesFolder;
-    this.onPick = onPick;
-    this.setPlaceholder("\u9009\u62E9\u5C01\u9762\u56FE\u2026");
-  }
-  getItems() {
-    return listImages(this.app, this.imagesFolder);
-  }
-  getItemText(item) {
-    return item.path;
-  }
-  renderSuggestion(match, el) {
-    const item = match.item;
-    el.createEl("div", { cls: "fuwari-cover-item" }, (d) => {
-      const img = d.createEl("img");
-      img.src = resourcePath(this.app, item);
-      img.addClass("fuwari-cover-thumb");
-      const label = d.createEl("span", { text: item.basename });
-      label.addClass("fuwari-cover-label");
-    });
-  }
-  onChooseItem(item) {
-    this.onPick(item);
-  }
-};
-
 // src/ai.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian2 = require("obsidian");
 function cleanBody(content, maxChars) {
   const trimmed = content.replace(/^\s*---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
   return trimmed.slice(0, maxChars);
@@ -24689,7 +24626,7 @@ ${body}`;
     max_tokens: 500
   };
   const base = settings.aiBaseUrl.replace(/\/+$/, "");
-  const resp = await (0, import_obsidian3.requestUrl)({
+  const resp = await (0, import_obsidian2.requestUrl)({
     url: `${base}/chat/completions`,
     method: "POST",
     headers: {
@@ -24725,6 +24662,106 @@ ${body}`;
   }
   return { summary, tags, category };
 }
+async function generateSlug(title, settings) {
+  var _a, _b, _c, _d;
+  const systemPrompt = "\u4F60\u662F\u4E00\u4E2A\u535A\u5BA2\u52A9\u624B\u3002\u7ED9\u5B9A\u4E00\u4E2A\uFF08\u901A\u5E38\u662F\u4E2D\u6587\u7684\uFF09\u6587\u7AE0\u6807\u9898\uFF0C\u8BF7\u7ED9\u51FA\u4E00\u4E2A\u7B80\u77ED\u3001\u6070\u5F53\u7684\u82F1\u6587 URL slug\u3002\u53EA\u8F93\u51FA slug \u672C\u8EAB\uFF0C\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u89E3\u91CA\u3001\u4E0D\u8981\u4EFB\u4F55\u591A\u4F59\u6587\u5B57\u3002";
+  const userPrompt = `\u6807\u9898\uFF1A${title}
+
+\u8981\u6C42\uFF1A2~5 \u4E2A\u82F1\u6587\u5355\u8BCD\uFF0C\u5168\u90E8\u5C0F\u5199\uFF0C\u5355\u8BCD\u4E4B\u95F4\u7528\u8FDE\u5B57\u7B26 - \u8FDE\u63A5\uFF0C\u53EA\u5305\u542B a-z\u30010-9 \u548C\u8FDE\u5B57\u7B26\u3002\u76F4\u63A5\u8F93\u51FA slug\u3002`;
+  const payload = {
+    model: settings.aiModel,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    temperature: 0.2,
+    max_tokens: 400
+  };
+  const base = settings.aiBaseUrl.replace(/\/+$/, "");
+  const resp = await (0, import_obsidian2.requestUrl)({
+    url: `${base}/chat/completions`,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.aiApiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+  if (resp.status < 200 || resp.status >= 300) {
+    throw new Error(`AI API ${resp.status}: ${(resp.text || "").slice(0, 200)}`);
+  }
+  const data = resp.json;
+  const text = ((_d = (_c = (_b = (_a = data == null ? void 0 : data.choices) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) == null ? void 0 : _c.content) == null ? void 0 : _d.trim()) || "";
+  return text.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/g, "");
+}
+
+// src/meta-modal.ts
+var import_obsidian4 = require("obsidian");
+
+// src/cover.ts
+var import_obsidian3 = require("obsidian");
+var IMAGE_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"]);
+function listImages(app, imagesFolder) {
+  return app.vault.getFiles().filter((f) => {
+    if (!IMAGE_EXTS.has(f.extension) || !isUnder(f.path, imagesFolder))
+      return false;
+    return true;
+  });
+}
+async function ensureFolder(app, folder) {
+  if (!folder)
+    return;
+  if (!app.vault.getAbstractFileByPath(folder)) {
+    await app.vault.createFolder(folder);
+  }
+}
+function resourcePath(app, file) {
+  try {
+    return app.vault.getResourcePath(file);
+  } catch (e) {
+    return "";
+  }
+}
+async function importImage(app, imagesFolder, rawName, data) {
+  await ensureFolder(app, imagesFolder);
+  const safe = sanitizeFileName(rawName);
+  let name = safe;
+  let i = 1;
+  while (app.vault.getAbstractFileByPath(`${imagesFolder}/${name}`)) {
+    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
+    const stem = name.slice(0, name.lastIndexOf("."));
+    name = `${stem}-${i++}${ext}`;
+  }
+  await app.vault.createBinary(`${imagesFolder}/${name}`, data);
+  return `/images/${name}`;
+}
+var CoverSuggestModal = class extends import_obsidian3.FuzzySuggestModal {
+  constructor(app, imagesFolder, onPick) {
+    super(app);
+    this.imagesFolder = imagesFolder;
+    this.onPick = onPick;
+    this.setPlaceholder("\u9009\u62E9\u5C01\u9762\u56FE\u2026");
+  }
+  getItems() {
+    return listImages(this.app, this.imagesFolder);
+  }
+  getItemText(item) {
+    return item.path;
+  }
+  renderSuggestion(match, el) {
+    const item = match.item;
+    el.createEl("div", { cls: "fuwari-cover-item" }, (d) => {
+      const img = d.createEl("img");
+      img.src = resourcePath(this.app, item);
+      img.addClass("fuwari-cover-thumb");
+      const label = d.createEl("span", { text: item.basename });
+      label.addClass("fuwari-cover-label");
+    });
+  }
+  onChooseItem(item) {
+    this.onPick(item);
+  }
+};
 
 // src/meta-modal.ts
 function dateVal(v) {
@@ -25429,11 +25466,22 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
       await this.app.vault.createFolder(postsFolder);
     }
     new NewPostModal(this.app, async (title, tags, category) => {
-      let slug = slugify(title);
-      let path = `${postsFolder}/${slug}.md`;
+      let slug = "";
+      if (this.settings.aiEnabled && this.settings.aiGenerateSlug && this.settings.aiApiKey) {
+        try {
+          new import_obsidian6.Notice("\u6B63\u5728\u7528 AI \u751F\u6210 slug\u2026");
+          slug = await generateSlug(title, this.settings);
+        } catch (e) {
+          slug = "";
+        }
+      }
+      if (!slug)
+        slug = pinyinSlug(title);
+      const fileName = slugify(title);
+      let path = `${postsFolder}/${fileName}.md`;
       let i = 1;
       while (this.app.vault.getAbstractFileByPath(path)) {
-        path = `${postsFolder}/${slug}-${i++}.md`;
+        path = `${postsFolder}/${fileName}-${i++}.md`;
       }
       const today = (0, import_obsidian6.moment)().format("YYYY-MM-DD");
       const q = (s) => `"${String(s).replace(/"/g, '\\"')}"`;
@@ -25441,9 +25489,9 @@ var FuwariToolsPlugin = class extends import_obsidian6.Plugin {
       const content = [
         "---",
         `title: ${q(title)}`,
-        `slug: ${q(pinyinSlug(title))}`,
-        `published: "${today}"`,
-        `updated: "${today}"`,
+        `slug: ${q(slug)}`,
+        `published: ${today}`,
+        `updated: ${today}`,
         'description: ""',
         tags.length ? `tags: [${tagsYaml}]` : "tags: []",
         `category: ${q(category)}`,

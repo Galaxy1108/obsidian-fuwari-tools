@@ -9,6 +9,7 @@ import {
 } from "./settings";
 import { getFrontmatter, isPostFile, isRealPost, isUnder, pinyinSlug, slugify } from "./fm";
 import { git, autoCommitMessage } from "./git";
+import { generateSlug } from "./ai";
 import { MetaModal } from "./meta-modal";
 import { registerBlogRender } from "./render";
 import { livePreviewExtension } from "./livepreview";
@@ -143,11 +144,24 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 			await this.app.vault.createFolder(postsFolder);
 		}
 		new NewPostModal(this.app, async (title, tags, category) => {
-			let slug = slugify(title);
-			let path = `${postsFolder}/${slug}.md`;
+			// URL slug: prefer a short AI-generated English slug, else fall back to pinyin.
+			let slug = "";
+			if (this.settings.aiEnabled && this.settings.aiGenerateSlug && this.settings.aiApiKey) {
+				try {
+					new Notice("正在用 AI 生成 slug…");
+					slug = await generateSlug(title, this.settings);
+				} catch (e) {
+					slug = "";
+				}
+			}
+			if (!slug) slug = pinyinSlug(title);
+
+			// Filename keeps the Chinese title (readable in Obsidian); the URL uses `slug`.
+			const fileName = slugify(title);
+			let path = `${postsFolder}/${fileName}.md`;
 			let i = 1;
 			while (this.app.vault.getAbstractFileByPath(path)) {
-				path = `${postsFolder}/${slug}-${i++}.md`;
+				path = `${postsFolder}/${fileName}-${i++}.md`;
 			}
 			const today = moment().format("YYYY-MM-DD");
 			const q = (s: string) => `"${String(s).replace(/"/g, '\\"')}"`;
@@ -155,9 +169,9 @@ export default class FuwariToolsPlugin extends Plugin implements FuwariLike {
 			const content = [
 				"---",
 				`title: ${q(title)}`,
-				`slug: ${q(pinyinSlug(title))}`,
-				`published: "${today}"`,
-				`updated: "${today}"`,
+				`slug: ${q(slug)}`,
+				`published: ${today}`,
+				`updated: ${today}`,
 				'description: ""',
 				tags.length ? `tags: [${tagsYaml}]` : "tags: []",
 				`category: ${q(category)}`,

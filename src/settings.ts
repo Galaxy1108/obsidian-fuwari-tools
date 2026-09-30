@@ -13,6 +13,7 @@ export interface FuwariSettings {
 	aiApiKey: string;
 	aiMaxChars: number;
 	aiGenerateTags: boolean;
+	aiGenerateSlug: boolean;
 	publishEnabled: boolean;
 	publishScriptPath: string;
 	// Git sync (push / pull content to the blog GitHub repo)
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: FuwariSettings = {
 	aiApiKey: "",
 	aiMaxChars: 2000,
 	aiGenerateTags: false,
+	aiGenerateSlug: true,
 	publishEnabled: true,
 	publishScriptPath: "~/Documents/Projects/Blog/publish.sh",
 	gitRepoPath: "",
@@ -134,6 +136,12 @@ export class FuwariSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("AI 顺带生成 tags/category").addToggle((t) =>
 			t.setValue(this.plugin.settings.aiGenerateTags).onChange(async (v) => {
 				this.plugin.settings.aiGenerateTags = v;
+				await this.plugin.saveSettings();
+			}));
+
+		new Setting(containerEl).setName("AI 生成英文 slug").setDesc("新建文章时用 AI 翻成简短英文 URL；失败或未启用则用拼音").addToggle((t) =>
+			t.setValue(this.plugin.settings.aiGenerateSlug).onChange(async (v) => {
+				this.plugin.settings.aiGenerateSlug = v;
 				await this.plugin.saveSettings();
 			}));
 
